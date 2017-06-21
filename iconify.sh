@@ -2,7 +2,7 @@
 
 __icon_list=''
 __exclude_list=''
-__verbose='0'
+__verbose='1'
 __background='white'
 __size=''
 __default_size='256'
@@ -230,7 +230,8 @@ Makes a labeled icon montage for Numix PRs.
 
 Options:
   -h  -? --help             Help (this message).
-  -v  --verbose             Be verbose.
+  -v  --verbose             Be verbose (default).
+  -q  --quiet               Don't be verbose.
 
   --exclude=<theme>         Icon themes to exclude from compositing.
                             May be specified multiple times.
@@ -259,6 +260,10 @@ case "${1}" in
 
     "-v" | "--verbose")
         __verbose='1'
+        ;;
+
+    "-q" | "--quiet")
+        __verbose='0'
         ;;
 
     "--exclude="*)
