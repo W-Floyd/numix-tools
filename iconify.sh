@@ -8,158 +8,6 @@ __size=''
 __default_size='256'
 
 ################################################################################
-
-__usage () {
-echo "$(basename "${0}") <OPTIONS> <ICONS>
-
-Makes a labeled icon montage for Numix PRs.
-
-Options:
-  -h  -? --help             Help (this message).
-  -v  --verbose             Be verbose.
-
-  --exclude=<theme>         Icon themes to exclude from compositing.
-                            May be specified multiple times.
-
-  --background=<colour>     Background colour to use.
-
-  --size=<size>             Minimum size to scale icons to.
-"
-}
-
-################################################################################
-
-# If there are are options,
-if ! [ "${#}" = 0 ]; then
-
-################################################################################
-
-__check_input () {
-
-case "${1}" in
-
-    "-h" | "-?" | "--help")
-        __usage
-        exit 77
-        ;;
-
-    "-v" | "--verbose")
-        __verbose='1'
-        ;;
-
-    "--exclude="*)
-        __add_flag "${1}" __exclude_list
-        ;;
-
-    "--background="*)
-        __set_flag "${1}" __background
-        ;;
-
-    "--size="*)
-        __set_flag "${1}" __size
-        ;;
-
-    *)
-        __icon_list+="${1}"
-        ;;
-
-esac
-
-}
-
-################################################################################
-
-__process_option () {
-
-if [ "${1}" = '-' ] || [ "${1}" = '--' ]; then
-
-    __check_input "${1}"
-
-elif grep '^--.*' <<< "${1}" &> /dev/null; then
-
-    __check_input "${1}"
-
-elif grep '^-.*' <<< "${1}" &> /dev/null; then
-
-    __letters="$(cut -c 2- <<< "${1}" | sed 's/./& /g')"
-
-    for __letter in ${__letters}; do
-
-        __check_input "-${__letter}"
-
-    done
-
-else
-    __check_input "${1}"
-fi
-
-if [ "${?}" = '77' ]; then
-    exit
-fi
-
-}
-
-################################################################################
-
-__check_option () {
-if grep -q '^-.*' <<< "${1}"; then
-    return 0
-else
-    return 1
-fi
-}
-
-################################################################################
-#
-# __set_flag <RAW_OPTION> <VARIABLE>
-#
-# Set Flag
-# Sets a flag from RAW_OPTION in VARIABLE.
-#
-################################################################################
-
-__set_flag () {
-export "${2}"="$(sed 's/[^=]*=//' <<< "${1}")"
-}
-
-################################################################################
-#
-# __add_flag <RAW_OPTION> <VARIABLE>
-#
-# Add Flag
-# Adds a flag from RAW_OPTION onto VARIABLE.
-#
-################################################################################
-
-__add_flag () {
-export "${2}"+="
-$(sed 's/[^=]*=//' <<< "${1}")"
-}
-
-################################################################################
-
-# then let's look at them in sequence.
-while ! [ "${#}" = '0' ]; do
-
-    case "${__last_option}" in
-
-        *)
-            __process_option "${1}"
-            ;;
-
-    esac
-
-    __last_option="${1}"
-
-    shift
-
-done
-
-fi
-
-__last_option=''
-
-################################################################################
 #
 # ... | __funiq
 #
@@ -271,8 +119,34 @@ exit 1
 ################################################################################
 
 __force_warn () {
-if ! [ "${__name_only}" = '1' ] && ! [ "${__list_changed}" = '1' ]; then
-    __format_text "\e[93mWARN\e[39m" "${1}" ", continuing anyway." 1>&2
+__format_text "\e[93mWARN\e[39m" "${1}" ", continuing anyway." 1>&2
+}
+
+################################################################################
+#
+# __force_announce <MESSAGE>
+#
+# Force Announce
+# Echos a statement, when __quiet is equal to 0.
+#
+################################################################################
+
+__force_announce () {
+__format_text "\e[32mINFO\e[39m" "${1}" ""
+}
+
+################################################################################
+#
+# __announce <MESSAGE>
+#
+# Announce
+# Echos a statement, only if __verbose is equal to 1.
+#
+################################################################################
+
+__announce () {
+if [ "${__verbose}" = '1' ]; then
+    __force_announce "${1}"
 fi
 }
 
@@ -349,7 +223,172 @@ fi
 
 ################################################################################
 
-while read -r __icon; do
+__usage () {
+echo "$(basename "${0}") <OPTIONS> <ICONS>
+
+Makes a labeled icon montage for Numix PRs.
+
+Options:
+  -h  -? --help             Help (this message).
+  -v  --verbose             Be verbose.
+
+  --exclude=<theme>         Icon themes to exclude from compositing.
+                            May be specified multiple times.
+
+  --background=<colour>     Background colour to use.
+
+  --size=<size>             Minimum size to scale icons to.
+"
+}
+
+################################################################################
+
+# If there are are options,
+if ! [ "${#}" = 0 ]; then
+
+################################################################################
+
+__check_input () {
+
+case "${1}" in
+
+    "-h" | "-?" | "--help")
+        __usage
+        exit 77
+        ;;
+
+    "-v" | "--verbose")
+        __verbose='1'
+        ;;
+
+    "--exclude="*)
+        __add_flag "${1}" __exclude_list
+        ;;
+
+    "--background="*)
+        __set_flag "${1}" __background
+        ;;
+
+    "--size="*)
+        __set_flag "${1}" __size
+        ;;
+
+    *)
+        __icon_list+="
+${1}"
+        ;;
+
+esac
+
+}
+
+################################################################################
+
+__process_option () {
+
+if [ "${1}" = '-' ] || [ "${1}" = '--' ]; then
+
+    __check_input "${1}"
+
+elif grep '^--.*' <<< "${1}" &> /dev/null; then
+
+    __check_input "${1}"
+
+elif grep '^-.*' <<< "${1}" &> /dev/null; then
+
+    __letters="$(cut -c 2- <<< "${1}" | sed 's/./& /g')"
+
+    for __letter in ${__letters}; do
+
+        __check_input "-${__letter}"
+
+    done
+
+else
+    __check_input "${1}"
+fi
+
+if [ "${?}" = '77' ]; then
+    exit
+fi
+
+}
+
+################################################################################
+
+__check_option () {
+if grep -q '^-.*' <<< "${1}"; then
+    return 0
+else
+    return 1
+fi
+}
+
+################################################################################
+#
+# __set_flag <RAW_OPTION> <VARIABLE>
+#
+# Set Flag
+# Sets a flag from RAW_OPTION in VARIABLE.
+#
+################################################################################
+
+__set_flag () {
+export "${2}"="$(sed 's/[^=]*=//' <<< "${1}")"
+}
+
+################################################################################
+#
+# __add_flag <RAW_OPTION> <VARIABLE>
+#
+# Add Flag
+# Adds a flag from RAW_OPTION onto VARIABLE.
+#
+################################################################################
+
+__add_flag () {
+export "${2}"+="
+$(sed 's/[^=]*=//' <<< "${1}")"
+}
+
+################################################################################
+
+# then let's look at them in sequence.
+while ! [ "${#}" = '0' ]; do
+
+    case "${__last_option}" in
+
+        *)
+            __process_option "${1}"
+            ;;
+
+    esac
+
+    __last_option="${1}"
+
+    shift
+
+done
+
+fi
+
+__last_option=''
+
+################################################################################
+
+if ! [ -d 'original' ] || ! [ -d '../icons' ]; then
+    __error "Not in the numix directory"
+fi
+
+if [ -z "${__icon_list}" ]; then
+    __error "No icons specified"
+fi
+
+################################################################################
+
+sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
+
+    __announce "Processing '${__icon}'"
 
     if [ -z "${__size}" ]; then
         __size="${__default_size}"
@@ -422,6 +461,6 @@ square" | sed -e "s#^#${__tmp_dir}/#" -e 's#$#\.png#' | grep "$(find "${__tmp_di
 
     rm -r "${__tmp_dir}"
 
-done <<< "${__icon_list}"
+done
 
 exit
