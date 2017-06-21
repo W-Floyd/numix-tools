@@ -1,20 +1,163 @@
 #!/bin/bash
 
+__icon_list=''
+__exclude_list=''
+__verbose='0'
+__background='white'
+__size=''
+__default_size='256'
+
+################################################################################
+
+__usage () {
+echo "$(basename "${0}") <OPTIONS> <ICONS>
+
+Makes a labeled icon montage for Numix PRs.
+
+Options:
+  -h  -? --help             Help (this message).
+  -v  --verbose             Be verbose.
+
+  --exclude=<theme>         Icon themes to exclude from compositing.
+                            May be specified multiple times.
+
+  --background=<colour>     Background colour to use.
+
+  --size=<size>             Minimum size to scale icons to.
+"
+}
+
+################################################################################
+
+# If there are are options,
+if ! [ "${#}" = 0 ]; then
+
+################################################################################
+
+__check_input () {
+
+case "${1}" in
+
+    "-h" | "-?" | "--help")
+        __usage
+        exit 77
+        ;;
+
+    "-v" | "--verbose")
+        __verbose='1'
+        ;;
+
+    "--exclude="*)
+        __add_flag "${1}" __exclude_list
+        ;;
+
+    "--background="*)
+        __set_flag "${1}" __background
+        ;;
+
+    "--size="*)
+        __set_flag "${1}" __size
+        ;;
+
+    *)
+        __icon_list+="${1}"
+        ;;
+
+esac
+
+}
+
+################################################################################
+
+__process_option () {
+
+if [ "${1}" = '-' ] || [ "${1}" = '--' ]; then
+
+    __check_input "${1}"
+
+elif grep '^--.*' <<< "${1}" &> /dev/null; then
+
+    __check_input "${1}"
+
+elif grep '^-.*' <<< "${1}" &> /dev/null; then
+
+    __letters="$(cut -c 2- <<< "${1}" | sed 's/./& /g')"
+
+    for __letter in ${__letters}; do
+
+        __check_input "-${__letter}"
+
+    done
+
+else
+    __check_input "${1}"
+fi
+
+if [ "${?}" = '77' ]; then
+    exit
+fi
+
+}
+
+################################################################################
+
+__check_option () {
+if grep -q '^-.*' <<< "${1}"; then
+    return 0
+else
+    return 1
+fi
+}
+
 ################################################################################
 #
-# iconify.sh name colour
+# __set_flag <RAW_OPTION> <VARIABLE>
 #
-# Iconify
-# Makes a montage of all icons available for the given icon name, with optional
-# background
+# Set Flag
+# Sets a flag from RAW_OPTION in VARIABLE.
 #
 ################################################################################
 
-if [ "${#}" = '2' ]; then
-    __background="${2}"
-else
-    __background='white'
+__set_flag () {
+export "${2}"="$(sed 's/[^=]*=//' <<< "${1}")"
+}
+
+################################################################################
+#
+# __add_flag <RAW_OPTION> <VARIABLE>
+#
+# Add Flag
+# Adds a flag from RAW_OPTION onto VARIABLE.
+#
+################################################################################
+
+__add_flag () {
+export "${2}"+="
+$(sed 's/[^=]*=//' <<< "${1}")"
+}
+
+################################################################################
+
+# then let's look at them in sequence.
+while ! [ "${#}" = '0' ]; do
+
+    case "${__last_option}" in
+
+        *)
+            __process_option "${1}"
+            ;;
+
+    esac
+
+    __last_option="${1}"
+
+    shift
+
+done
+
 fi
+
+__last_option=''
 
 ################################################################################
 #
@@ -120,6 +263,21 @@ exit 1
 
 ################################################################################
 #
+# __force_warn <MESSAGE>
+#
+# Warn
+# Echos a statement when something has gone wrong.
+#
+################################################################################
+
+__force_warn () {
+if ! [ "${__name_only}" = '1' ] && ! [ "${__list_changed}" = '1' ]; then
+    __format_text "\e[93mWARN\e[39m" "${1}" ", continuing anyway." 1>&2
+fi
+}
+
+################################################################################
+#
 # <LIST_OF_FILES> | __mext <FILE_1> <FILE_2> <FILE_3> ...
 #
 # Minus Extension
@@ -191,64 +349,79 @@ fi
 
 ################################################################################
 
-__tmp_dir="$(mktemp -d)"
-__original="./original/${1}"
-__font='Ubuntu'
-__orig_target=''
+while read -r __icon; do
 
-if ! [ -e "${__original}.png" ] && ! [ -e "${__original}.jpg" ] ; then
-    __size='128'
+    if [ -z "${__size}" ]; then
+        __size="${__default_size}"
+    fi
 
-    if [ -e "${__original}.svg" ]; then
+    __tmp_dir="$(mktemp -d)"
+    __original="./original/${__icon}"
+    __font='Ubuntu'
+    __orig_target=''
 
-        rsvg-convert "${__original}.svg" -w "${__size}" -o "${__original}.png"
+    if ! grep -qx "original" <<< "${__exclude_list}"; then
+
+    if ! [ -e "${__original}.png" ] && ! [ -e "${__original}.jpg" ] ; then
+
+        if [ -e "${__original}.svg" ]; then
+
+            rsvg-convert "${__original}.svg" -w "${__size}" -o "${__original}.png"
+
+        fi
+    fi
+
+    if [ -e "${__original}.png" ]; then
+        __orig_target="${__original}.png"
+    elif [ -e "${__original}.jpg" ]; then
+        __orig_target="${__original}.jpg"
+    fi
+
+    if [ -e "${__orig_target}" ] ; then
+        until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__size}" ]; do
+            convert "${__orig_target}" -scale 200% "${__orig_target}"
+        done
+        __size="$(identify -format "%w" "${__orig_target}")"
+        montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+    fi
 
     fi
-fi
 
-if [ -e "${__original}.png" ]; then
-    __orig_target="${__original}.png"
-elif [ -e "${__original}.jpg" ]; then
-    __orig_target="${__original}.jpg"
-fi
+    find ../icons/ | grep -E "/${__icon}.svg\$" | while read -r __file; do
 
-if [ -e "${__orig_target}" ] ; then
-    until ! [ "$(identify -format "%w" "${__orig_target}")" -lt '128' ]; do
-        convert "${__orig_target}" -scale 200% "${__orig_target}"
+        __theme="$(sed 's#^../icons/\([^/]*\).*#\1#' <<< "${__file}")"
+
+        if ! grep -qx "${__theme}" <<< "${__exclude_list}"; then
+
+            __tmp_file="$(mktemp --suffix=.png "--tmpdir=${__tmp_dir}")"
+
+            rsvg-convert "${__file}" -w "${__size}" -o "${__tmp_file}"
+
+            montage -font "${__font}" -label "${__theme^}" "${__tmp_file}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/${__theme}.png"
+
+            rm "${__tmp_file}"
+
+        fi
+
     done
-    __size="$(identify -format "%w" "${__orig_target}")"
-    montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
-fi
 
-find ../icons/ | grep -E "/${1}.svg\$" | while read -r __file; do
+    __num_file="$(find "${__tmp_dir}" -type f | wc -l)"
 
-    __theme="$(sed 's#^../icons/\([^/]*\).*#\1#' <<< "${__file}")"
-
-    __tmp_file="$(mktemp --suffix=.png "--tmpdir=${__tmp_dir}")"
-
-    rsvg-convert "${__file}" -w "${__size}" -o "${__tmp_file}"
-
-    montage -font "${__font}" -label "${__theme^}" "${__tmp_file}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/${__theme}.png"
-
-    rm "${__tmp_file}"
-
-done
-
-__num_file="$(find "${__tmp_dir}" -type f | wc -l)"
-
-__files="$(
-(
-echo "original
+    __files="$(
+    (
+    echo "original
 circle
 square" | sed -e "s#^#${__tmp_dir}/#" -e 's#$#\.png#' | grep "$(find "${__tmp_dir}" -type f | sed 's#.*/\([^\.]*\)*\.png#\1#')"
-find "${__tmp_dir}" -type f
-) | __funiq | while read -r __file; do
-    echo -n "${__file} "
-done | sed 's/ $//'
-)"
+    find "${__tmp_dir}" -type f
+    ) | __funiq | while read -r __file; do
+        echo -n "${__file} "
+    done | sed 's/ $//'
+    )"
 
-__custom_tile "${__files}" "${__num_file}x1" 8 "./iconified_${1}.png"
+    __custom_tile "${__files}" "${__num_file}x1" 8 "./iconified_${__icon}.png"
 
-rm -r "${__tmp_dir}"
+    rm -r "${__tmp_dir}"
+
+done <<< "${__icon_list}"
 
 exit
