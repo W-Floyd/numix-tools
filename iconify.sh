@@ -406,28 +406,25 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
 
     if ! grep -qx "original" <<< "${__exclude_list}"; then
 
-    if ! [ -e "${__original}.png" ] && ! [ -e "${__original}.jpg" ] ; then
-
         if [ -e "${__original}.svg" ]; then
 
             rsvg-convert "${__original}.svg" -w "${__size}" -o "${__original}.png"
 
         fi
-    fi
 
-    if [ -e "${__original}.png" ]; then
-        __orig_target="${__original}.png"
-    elif [ -e "${__original}.jpg" ]; then
-        __orig_target="${__original}.jpg"
-    fi
+        if [ -e "${__original}.png" ]; then
+            __orig_target="${__original}.png"
+        elif [ -e "${__original}.jpg" ]; then
+            __orig_target="${__original}.jpg"
+        fi
 
-    if [ -e "${__orig_target}" ] ; then
-        until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__size}" ]; do
-            convert "${__orig_target}" -scale 200% "${__orig_target}"
-        done
-        __size="$(identify -format "%w" "${__orig_target}")"
-        montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
-    fi
+        if [ -e "${__orig_target}" ] ; then
+            until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__size}" ]; do
+                convert "${__orig_target}" -scale 200% "${__orig_target}"
+            done
+            __size="$(identify -format "%w" "${__orig_target}")"
+            montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+        fi
 
     fi
 
