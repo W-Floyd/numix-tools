@@ -461,6 +461,8 @@ square" | sed -e "s#^#${__tmp_dir}/#" -e 's#$#\.png#' | grep "$(find "${__tmp_di
 
     __custom_tile "${__files}" "${__num_file}x1" 8 "./iconified_${__icon}.png"
 
+    optipng "./iconified_${__icon}.png" -quiet
+
     rm -r "${__tmp_dir}"
 
 done
