@@ -5,7 +5,7 @@ __exclude_list=''
 __verbose='1'
 __background='white'
 __size=''
-__default_size='256'
+__default_size='512'
 
 ################################################################################
 #
