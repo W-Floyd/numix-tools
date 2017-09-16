@@ -5,7 +5,8 @@ __exclude_list=''
 __verbose='1'
 __background='white'
 __size=''
-__default_size='512'
+__default_size='256'
+__force_size='0'
 
 ################################################################################
 #
@@ -239,6 +240,8 @@ Options:
   --background=<colour>     Background colour to use.
 
   --size=<size>             Minimum size to scale icons to.
+
+  --force-size              Scale exactly to given size.
 "
 }
 
@@ -276,6 +279,10 @@ case "${1}" in
 
     "--size="*)
         __set_flag "${1}" __size
+        ;;
+
+    "--force-size")
+        __force_size='1'
         ;;
 
     *)
@@ -419,11 +426,22 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
         fi
 
         if [ -e "${__orig_target}" ] ; then
-            until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__size}" ]; do
-                convert "${__orig_target}" -scale 200% "${__orig_target}"
-            done
+
+            convert "${__orig_target}" "${__orig_target}_temp.png"
+
+            __orig_target="${__orig_target}_temp.png"
+
+            if [ "${__force_size}" = '0' ]; then
+                until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__size}" ]; do
+                    convert "${__orig_target}" -scale 200% "${__orig_target}"
+                done
+            else
+                convert "${__orig_target}" -scale "${__size}x${__size}" "${__orig_target}"
+            fi
+
             __size="$(identify -format "%w" "${__orig_target}")"
             montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+            rm "${__orig_target}"
         fi
 
     fi
