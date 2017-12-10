@@ -7,6 +7,7 @@ __background='white'
 __size=''
 __default_size='256'
 __force_size='0'
+__no_label='0'
 
 ################################################################################
 #
@@ -242,6 +243,8 @@ Options:
   --size=<size>             Minimum size to scale icons to.
 
   --force-size              Scale exactly to given size.
+
+  --no-label                Do not include labels.
 "
 }
 
@@ -283,6 +286,10 @@ case "${1}" in
 
     "--force-size")
         __force_size='1'
+        ;;
+
+    "--no-label")
+        __no_label='1'
         ;;
 
     *)
@@ -440,7 +447,11 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
             fi
 
             __size="$(identify -format "%w" "${__orig_target}")"
-            montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+            if [ "${__no_label}" = '1' ]; then
+                montage -font "${__font}" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+            else
+                montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+            fi
             rm "${__orig_target}"
         fi
 
@@ -456,7 +467,11 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
 
             rsvg-convert "${__file}" -w "${__size}" -o "${__tmp_file}"
 
-            montage -font "${__font}" -label "${__theme^}" "${__tmp_file}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/${__theme}.png"
+            if [ "${__no_label}" = '1' ]; then
+                montage -font "${__font}" "${__tmp_file}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/${__theme}.png"
+            else
+                montage -font "${__font}" -label "${__theme^}" "${__tmp_file}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/${__theme}.png"
+            fi
 
             rm "${__tmp_file}"
 
