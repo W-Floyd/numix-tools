@@ -8,6 +8,7 @@ __size=''
 __default_size='256'
 __force_size='0'
 __no_label='0'
+__no_size_label='0'
 
 ################################################################################
 #
@@ -235,16 +236,21 @@ Options:
   -v  --verbose             Be verbose (default).
   -q  --quiet               Don't be verbose.
 
-  --exclude=<theme>         Icon themes to exclude from compositing.
+  --exclude=<theme>,<theme>...
+                            Icon themes to exclude from compositing.
                             May be specified multiple times.
 
   --background=<colour>     Background colour to use.
 
-  --size=<size>             Minimum size to scale icons to.
+  --sizes=<size>,<size>...  Minimum size to scale icons to.
+                            May be specified multiple times.
+                            Implies --force-size if multiple icons are listed.
 
   --force-size              Scale exactly to given size.
 
-  --no-label                Do not include labels.
+  --no-label                Do not include theme labels.
+
+  --no-size-label           Do not include size labels.
 "
 }
 
@@ -280,8 +286,8 @@ case "${1}" in
         __set_flag "${1}" __background
         ;;
 
-    "--size="*)
-        __set_flag "${1}" __size
+    "--sizes="*)
+        __add_flag "${1}" __sizes
         ;;
 
     "--force-size")
@@ -290,6 +296,10 @@ case "${1}" in
 
     "--no-label")
         __no_label='1'
+        ;;
+
+    "--no-size-label")
+        __no_size_label='1'
         ;;
 
     *)
@@ -367,7 +377,7 @@ export "${2}"="$(sed 's/[^=]*=//' <<< "${1}")"
 
 __add_flag () {
 export "${2}"+="
-$(sed 's/[^=]*=//' <<< "${1}")"
+$(sed 's/^[^=]*=//' <<< "${1}" | tr ',' '\n')"
 }
 
 ################################################################################
@@ -391,9 +401,9 @@ done
 
 fi
 
-__last_option=''
-
 ################################################################################
+
+__last_option=''
 
 if ! [ -d 'original' ] || ! [ -d '../icons' ]; then
     __error "Not in the numix directory"
@@ -403,26 +413,53 @@ if [ -z "${__icon_list}" ]; then
     __error "No icons specified"
 fi
 
+__sizes="$(sed '/^$/d' <<< "${__sizes}")"
+
+if [ "$(wc -l <<< "${__sizes}")" -gt '1' ]; then
+    __force_size='1'
+fi
+
 ################################################################################
 
 sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
 
     __announce "Processing '${__icon}'"
 
-    if [ -z "${__size}" ]; then
-        __size="${__default_size}"
+    if [ -z "${__sizes}" ]; then
+        __sizes="${__default_size}"
     fi
 
     __tmp_dir="$(mktemp -d)"
+    __scratch_dir="$(mktemp -d)"
     __original="./original/${__icon}"
     __font='Ubuntu'
     __orig_target=''
+
+    if [ "${__no_size_label}" = '0' ]; then
+
+        while read -r __size; do
+            convert -size "${__size}x${__size}" xc:${__background} -gravity Center -font "${__font}" -annotate -90 "${__size}" -trim "${__scratch_dir}/rawtext.png"
+            convert "${__scratch_dir}/rawtext.png" -gravity Center -background "${__background}" -extent "$(identify -format '%[fx:W]' "${__scratch_dir}/rawtext.png")x${__size}" "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
+            rm "${__scratch_dir}/rawtext.png"
+        done <<< "${__sizes}"
+
+        convert "${__scratch_dir}/"* -gravity center -append "${__tmp_dir}/size_label.png"
+
+        rm "${__scratch_dir}/"*
+
+    fi
 
     if ! grep -qx "original" <<< "${__exclude_list}"; then
 
         if [ -e "${__original}.svg" ]; then
 
-            rsvg-convert "${__original}.svg" -w "${__size}" -o "${__original}.png"
+            while read -r __size; do
+                rsvg-convert "${__original}.svg" -w "${__size}" -o "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
+            done <<< "${__sizes}"
+
+            convert "${__scratch_dir}/"* -background "${__background}" -gravity center -append "${__original}.png"
+
+            rm "${__scratch_dir}/"*
 
         fi
 
@@ -439,20 +476,20 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
             __orig_target="${__orig_target}_temp.png"
 
             if [ "${__force_size}" = '0' ]; then
-                until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__size}" ]; do
+                until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__sizes}" ]; do
                     convert "${__orig_target}" -scale 200% "${__orig_target}"
                 done
-            else
-                convert "${__orig_target}" -scale "${__size}x${__size}" "${__orig_target}"
+                __sizes="$(identify -format "%w" "${__orig_target}")"
             fi
 
-            __size="$(identify -format "%w" "${__orig_target}")"
             if [ "${__no_label}" = '1' ]; then
                 montage -font "${__font}" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
             else
                 montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
             fi
+
             rm "${__orig_target}"
+
         fi
 
     fi
@@ -465,7 +502,13 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
 
             __tmp_file="$(mktemp --suffix=.png "--tmpdir=${__tmp_dir}")"
 
-            rsvg-convert "${__file}" -w "${__size}" -o "${__tmp_file}"
+            while read -r __size; do
+                rsvg-convert "${__file}" -w "${__size}" -o "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
+            done <<< "${__sizes}"
+
+            convert "${__scratch_dir}/"* -background "${__background}" -gravity center -append "${__tmp_file}"
+
+            rm "${__scratch_dir}/"*
 
             if [ "${__no_label}" = '1' ]; then
                 montage -font "${__font}" "${__tmp_file}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/${__theme}.png"
@@ -483,7 +526,8 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
 
     __files="$(
     (
-    echo "original
+    echo "size_label
+original
 circle
 square" | sed -e "s#^#${__tmp_dir}/#" -e 's#$#\.png#' | grep "$(find "${__tmp_dir}" -type f | sed 's#.*/\([^\.]*\)*\.png#\1#')"
     find "${__tmp_dir}" -type f
@@ -497,6 +541,8 @@ square" | sed -e "s#^#${__tmp_dir}/#" -e 's#$#\.png#' | grep "$(find "${__tmp_di
     optipng "./iconified_${__icon}.png" -quiet
 
     rm -r "${__tmp_dir}"
+
+    rm -r "${__scratch_dir}"
 
 done
 
