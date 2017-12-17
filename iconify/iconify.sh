@@ -435,6 +435,94 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
     __font='Ubuntu'
     __orig_target=''
 
+    if ! grep -qx "original" <<< "${__exclude_list}"; then
+
+        if [ -e "${__original}.svg" ]; then
+
+            while read -r __size; do
+                rsvg-convert "${__original}.svg" -a -h "${__size}" -o "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
+            done <<< "${__sizes}"
+
+            convert "${__scratch_dir}/"* -background "${__background}" -gravity center -append "${__original}.png"
+
+            rm "${__scratch_dir}/"*
+
+        fi
+
+        if [ -e "${__original}.png" ] && ! [ -e "${__original}.svg" ]; then
+
+            __orig_target="${__original}.png"
+
+            if [ "${__force_size}" = '1' ]; then
+
+                while read -r __size; do
+                    convert "${__original}.png" -scale x${__size} "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
+                done <<< "${__sizes}"
+
+                convert "${__scratch_dir}/"* -background "${__background}" -gravity center -append "${__orig_target}_temp.png"
+
+                rm "${__scratch_dir}/"*
+            
+            else
+
+                cp "${__orig_target}" "${__orig_target}_temp.png"
+
+                until ! [ "$(identify -format "%h" "${__orig_target}")" -lt "${__sizes}" ]; do
+                    convert "${__orig_target}_temp.png" -scale 200% "${__orig_target}_temp.png"
+                done
+                __sizes="$(identify -format "%h" "${__orig_target}_temp.png")"
+
+            fi
+
+            __orig_target="${__orig_target}_temp.png"
+
+        elif [ -e "${__original}.png" ] && [ -e "${__original}.svg" ]; then
+            cp "${__original}.png" "${__orig_target}_temp.png"
+            __orig_target="${__orig_target}_temp.png"
+        elif [ -e "${__original}.jpg" ]; then
+
+            __orig_target="${__original}.jpg"
+
+            if [ "${__force_size}" = '1' ]; then
+
+                while read -r __size; do
+                    convert "${__orig_target}" -scale x${__size} "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
+                done <<< "${__sizes}"
+
+                convert "${__scratch_dir}/"* -background "${__background}" -gravity center -append "${__orig_target}_temp.png"
+
+                rm "${__scratch_dir}/"*
+            
+            else
+
+                convert "${__orig_target}" "${__orig_target}_temp.png"
+
+                until ! [ "$(identify -format "%h" "${__orig_target}_temp.png")" -lt "${__sizes}" ]; do
+                    convert "${__orig_target}_temp.png" -scale 200% "${__orig_target}_temp.png"
+                done
+
+                __sizes="$(identify -format "%h" "${__orig_target}_temp.png")"
+
+            fi
+
+            __orig_target="${__orig_target}_temp.png"
+
+        fi
+
+        if [ -e "${__orig_target}" ] ; then
+
+            if [ "${__no_label}" = '1' ]; then
+                montage -font "${__font}" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+            else
+                montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
+            fi
+
+            rm "${__orig_target}"
+
+        fi
+
+    fi
+
     if [ "${__no_size_label}" = '0' ]; then
 
         while read -r __size; do
@@ -446,51 +534,6 @@ sed '/^$/d' <<< "${__icon_list}" | while read -r __icon; do
         convert "${__scratch_dir}/"* -gravity center -append "${__tmp_dir}/size_label.png"
 
         rm "${__scratch_dir}/"*
-
-    fi
-
-    if ! grep -qx "original" <<< "${__exclude_list}"; then
-
-        if [ -e "${__original}.svg" ]; then
-
-            while read -r __size; do
-                rsvg-convert "${__original}.svg" -w "${__size}" -o "${__scratch_dir}/$(printf "%05d\n" "${__size}").png"
-            done <<< "${__sizes}"
-
-            convert "${__scratch_dir}/"* -background "${__background}" -gravity center -append "${__original}.png"
-
-            rm "${__scratch_dir}/"*
-
-        fi
-
-        if [ -e "${__original}.png" ]; then
-            __orig_target="${__original}.png"
-        elif [ -e "${__original}.jpg" ]; then
-            __orig_target="${__original}.jpg"
-        fi
-
-        if [ -e "${__orig_target}" ] ; then
-
-            convert "${__orig_target}" "${__orig_target}_temp.png"
-
-            __orig_target="${__orig_target}_temp.png"
-
-            if [ "${__force_size}" = '0' ]; then
-                until ! [ "$(identify -format "%w" "${__orig_target}")" -lt "${__sizes}" ]; do
-                    convert "${__orig_target}" -scale 200% "${__orig_target}"
-                done
-                __sizes="$(identify -format "%w" "${__orig_target}")"
-            fi
-
-            if [ "${__no_label}" = '1' ]; then
-                montage -font "${__font}" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
-            else
-                montage -font "${__font}" -label "Original" "${__orig_target}" -geometry +0+0 -background "${__background}" "${__tmp_dir}/original.png"
-            fi
-
-            rm "${__orig_target}"
-
-        fi
 
     fi
 
