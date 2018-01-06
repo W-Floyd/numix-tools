@@ -58,17 +58,36 @@ if (get_application_name()=="inkscape") then
         set_window_geometry(0,0,$((__width/2)),1000);
     end
 
-    if string.match(get_window_name(), "original.svg") then
-        debug_print("Top")
-        set_window_workspace($((__workspace_offset+1)));
-    elseif string.match(get_window_name(), "new.svg") then
-        debug_print("Bottom")
-        set_window_workspace($((__workspace_offset+2)));
-    end
+    set_window_workspace($((__workspace_offset+1)));
 
     maximize_vertically();
 end
 EOF
+
+# cat <<EOF > "${__script_file}"
+# if (get_application_name()=="inkscape") then
+
+#     debug_print(get_window_name())
+
+#     if string.match(get_window_name(), "square_") then
+#         debug_print("Right")
+#         set_window_geometry($((__width/2)),0,$((__width/2)),1000);
+#     elseif string.match(get_window_name(), "circle_") then
+#         debug_print("Left")
+#         set_window_geometry(0,0,$((__width/2)),1000);
+#     end
+
+#     if string.match(get_window_name(), "original.svg") then
+#         debug_print("Top")
+#         set_window_workspace($((__workspace_offset+1)));
+#     elseif string.match(get_window_name(), "new.svg") then
+#         debug_print("Bottom")
+#         set_window_workspace($((__workspace_offset+2)));
+#     end
+
+#     maximize_vertically();
+# end
+# EOF
 
 __new_square_source='templates/square/48.svg'
 __new_circle_source='templates/circle/48.svg'
@@ -93,19 +112,19 @@ find icons/square/48/ -type f
     echo "${__name}"
 
     __new_square="${__tmp_dir}/square_new.svg"
-    __old_square="${__tmp_dir}/square_original.svg"
+#    __old_square="${__tmp_dir}/square_original.svg"
     __old_square_source="icons/square/48/${__name}.svg"
-    __new_circle="${__tmp_dir}/circle_new.svg"
+#    __new_circle="${__tmp_dir}/circle_new.svg"
     __old_circle="${__tmp_dir}/circle_original.svg"
     __old_circle_source="icons/circle/48/${__name}.svg"
 
     __pid=()
 
-    if [ -e "${__old_square_source}" ]; then
-        cp "${__old_square_source}" "${__old_square}"
-        inkscape "${__old_square}" &
-        __pid+=("${!}")
-    fi
+    # if [ -e "${__old_square_source}" ]; then
+    #     cp "${__old_square_source}" "${__old_square}"
+    #     inkscape "${__old_square}" &
+    #     __pid+=("${!}")
+    # fi
 
     if [ -e "${__old_circle_source}" ]; then
         cp "${__old_circle_source}" "${__old_circle}"
@@ -113,14 +132,14 @@ find icons/square/48/ -type f
         __pid+=("${!}")
     fi
 
-    cp "${__new_circle_source}" "${__new_circle}"
+#    cp "${__new_circle_source}" "${__new_circle}"
     cp "${__new_square_source}" "${__new_square}"
 
     inkscape "${__new_square}" &
     __pid+=("${!}")
 
-    inkscape "${__new_circle}" &
-    __pid+=("${!}")
+    # inkscape "${__new_circle}" &
+    # __pid+=("${!}")
 
     wait ${__pid[@]}
 
@@ -128,17 +147,18 @@ find icons/square/48/ -type f
         mv "${__new_square}" "${__old_square_source}"
     fi
 
-    if ! [ "$(md5sum < "${__new_circle_source}")" == "$(md5sum < "${__new_circle}")" ]; then
-        mv "${__new_circle}" "${__old_circle_source}"
-    fi
+    # if ! [ "$(md5sum < "${__new_circle_source}")" == "$(md5sum < "${__new_circle}")" ]; then
+    #     mv "${__new_circle}" "${__old_circle_source}"
+    # fi
 
     __changed="$(git diff --name-only icons/)"
 
-    if grep -q 'icons/circle/48/' <<< "${__changed}" && grep -q 'icons/square/48/' <<< "${__changed}"; then
-        __message="${__name}: Clean and optimize circle and square."
-    elif grep -q 'icons/circle/48/' <<< "${__changed}"; then
-        __message="${__name}: Clean and optimize circle."
-    elif grep -q 'icons/square/48/' <<< "${__changed}"; then
+    # if grep -q 'icons/circle/48/' <<< "${__changed}" && grep -q 'icons/square/48/' <<< "${__changed}"; then
+    #     __message="${__name}: Clean and optimize circle and square."
+    # elif grep -q 'icons/circle/48/' <<< "${__changed}"; then
+    #     __message="${__name}: Clean and optimize circle."
+    # elif grep -q 'icons/square/48/' <<< "${__changed}"; then
+    if grep -q 'icons/square/48/' <<< "${__changed}"; then
         __message="${__name}: Clean and optimize square."
     fi
 
